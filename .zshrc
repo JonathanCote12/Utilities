@@ -1,7 +1,5 @@
 # .zshrc
-# https://github.com/NicolasCARPi/.dotfiles
-source $HOME/.zsh_alias
-
+# From : https://github.com/NicolasCARPi/.dotfiles
 
 # History
 HISTFILE=~/.histfile
@@ -117,12 +115,4 @@ function e () {
 # local configuration
 # if file is here and is readable, load it
 [[ -r ${HOME}/.zshrc.local ]] && source ${HOME}/.zshrc.local
-[[ -r ${HOME}/.zsh/aliases.zsh ]] && source ${HOME}/.zsh/aliases.zsh
-[[ -r ${HOME}/.zsh/tmuxinator.zsh ]] && source ${HOME}/.zsh/tmuxinator.zsh
-
-if [ "$TERM" != "linux" ] ; then
-    if ! tmux list-sessions > /dev/null 2>&1; then
-        tmuxinator ktr
-    fi
-fi
-# /K\
+[[ -r ${HOME}/.zsh_alias ]] && source ${HOME}/.zsh_alias
