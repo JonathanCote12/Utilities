@@ -1,5 +1,5 @@
 alias 'popo=ssh 94.177.197.246'
-alias 'ls=ls -G'
+#alias 'ls=ls -G'
 alias 'popo=ssh -D 1080  -C -q -v 94.177.197.246'
 alias 'pore= open -t'
 alias 'spore=sudo open -t'
