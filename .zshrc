@@ -77,9 +77,14 @@ export LESS_TERMCAP_ue=$'\E[0m'
 export LESS_TERMCAP_us=$'\E[01;32m'
 
 
+source  /opt/intel/mkl/bin/mklvars.sh intel64
+
 # autocomplete
 # https://github.com/tarruda/zsh-autosuggestions
 source ~/.zsh/zsh-autosuggestions.zsh
+
+
+
 # change color of autocomplete
 export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=7'
 
