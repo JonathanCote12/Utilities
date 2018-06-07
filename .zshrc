@@ -53,6 +53,7 @@ export PATH=/usr/local/share/python:$PATH
 
 if [ -d "$HOME/bin" ] ; then
   PATH="$PATH:$HOME/bin"
+  PYTHONPATH="$PYTHONPATH:$HOME/bin"
 fi
 
 
