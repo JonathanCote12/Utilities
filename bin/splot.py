@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright Serge Dmitrieff 
@@ -40,15 +40,15 @@ from tools import *
 		xmax		: max x value
 		ymin		: min y value
 		ymax		: max y value
-		key			: position of figure legend
-		out			: name of output file
+		key		: position of figure legend
+		out		: name of output file
 		
 	Local options :
-		x			: index of column or row to be used as x axis values (e.g. x=0 for the first column)
+		x		: index of column or row to be used as x axis values (e.g. x=0 for the first column)
 						also can specify an operation : x=A[:,0]*A[:,1]
-		y			: index of column or row to be used as y axis values (e.g. x=0 for the first column)
+		y		: index of column or row to be used as y axis values (e.g. x=0 for the first column)
 						also can specify an operation : y=A[:,1]*A[:,2]/A[:,3]
-		dy			: index of column or row to be used as dy values (e.g. x=0 for the first column)
+		dy		: index of column or row to be used as dy values (e.g. x=0 for the first column)
 						also can specify an operation : dy=A[:,2]/sqrt(A[:,3])
 		mode		: h for horizontal (rows), v for vertical (column) (default)
 		
@@ -57,7 +57,11 @@ from tools import *
 						or an operation, e.g. color=A[:,2]
 		
 		style		: style of plot : - or _ for a line, -- for dashed, .- for dashdotted
-									o for circles  x , * for crosses  + for plus   > , < for triangles
+									o for circles  x , * for crosses  + for plus   > , <	 for triangles	
+		if		: condition to keep the rows or columns
+
+		range		: range of rows / columns to plot
+
 		size		: size of symbol used							
 									
 		line		: thickness of line, from 0 to 5 
@@ -68,6 +72,8 @@ from tools import *
 			
 			splot.py file.txt
 						plots the second column of file.txt as a function of the first column
+			splot.py file.txt x=3 y=7
+						plots the 4th (3+1) column of file.txt as a function of the eigth column (7+1)
 			splot.py file.txt color=red file2.txt out=plot.pdf
 						plots in red the second column of file.txt as a function of the first column
 						plots the second column of file2.txt as a function of the first column in the same graph
@@ -76,7 +82,10 @@ from tools import *
 						the deviation is set from the fourth column of file.txt
 						the color is set from the second column of file.txt, based on a gray-level gradient
 						labels and titles use the Latex interpreter
-						
+			splot.py file.txt if='A[:,0]>1' 
+						plots the second column as a function of the first if elements of the first are greater than 1
+			splot.py file.txt mode='h' if='A[0,:]>1' 
+						plots the second row as a function of the first row if elements of the first row are greater than 1
 """
 
 # Basic set of colours
@@ -246,7 +255,9 @@ class Graph(Glob):
 		self.C=[]		
 		self.dx=[]
 		self.dy=[]		
-		self.col=[]	
+		self.col=[]
+		self.cond=[]
+		self.range=[]	
 		(A,a,b)=getdata(self.file)
 		labels=splitheader(self.file)
 		
@@ -277,6 +288,10 @@ class Graph(Glob):
 				self.dx=(arg[3:])
 			elif arg.startswith('dy='):
 				self.dy=(arg[3:])
+			elif arg.startswith('if='):
+				self.cond=(arg[3:])
+			elif arg.startswith('range='):
+				self.range=(arg[6:])
 			elif arg.startswith('color='):
 				col=arg[6:]
 				if col.isdigit() or col.find('A[')>=0:
@@ -286,7 +301,9 @@ class Graph(Glob):
 				if siz.isdigit() or siz.find('A[')>=0:
 					self.S=self.set_from_input(A,siz,'size')	
 		
-				
+		if (len(self.range) or len(self.cond)):
+			A=self.set_A_range(A)	
+	
 		self.X=self.set_from_input(A,self.x,'x')
 		self.Y=self.set_from_input(A,self.y,'y')
 		self.dX=self.set_from_input(A,self.dx,'dx')
@@ -343,6 +360,43 @@ class Graph(Glob):
 				return []
 			else:
 				return []
+
+	def set_A_range(self,A):
+		# first we need to make data horizontal for the range operation
+		if self.mode=='h':
+			B=A.transpose()
+		else:
+			B=A.copy()
+		if len(self.range)>0:
+			srange=self.range.split(":")
+			lr=len(srange)
+			try :
+				iii=array([int(s) for s in srange])
+				if lr==2:
+					B=B[iii[0]:iii[1]]
+				elif lr==3:
+					B=B[iii[0]:iii[2]:iii[1]]
+				else:
+					print('Range must be of the format begin:end or begin:range')
+					raise ValueError('Range must be of the format begin:end or begin:step:end')
+			except:
+				raise ValueError('Cannot convert Range to adequate format (note : range must be of the format begin:end or begin:step:end)')		
+		# Now we transpose for the 'if' operation or export
+		if self.mode=='h':
+			A=B.transpose()
+		else:
+			A=B.copy()
+		if len(self.cond)>0:
+			try:
+				kept=eval(self.cond)
+				if self.mode=='h':
+					B=B[kept]
+					A=B.transpose()
+				else:
+					A=A[kept]
+			except:
+				raise ValueError('Cannot understand condition. Hint use : if=\'A[:,2]>0.5\' ')	
+		return A
 		
 class Style(Graph):
 	def __init__(self, args):
