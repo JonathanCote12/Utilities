@@ -2,10 +2,14 @@
 import math
 from numpy import *
 
-def multilinear_regression(Y,XX,nimp):
+def multilinear_regression(Y,XX,*args):
 	sy=Y.shape
 	sx=XX.shape
-
+	# nimp is the number of 'important' fitting parameters
+	if len(args)>0:
+		nimp=args[0]
+	else:
+		nimp=min(sx)
 	# Making sure Y is a column vector
 	ny=max(Y.shape)
 	if min(sy)>1 and len(sy)>1:
@@ -46,6 +50,7 @@ def multilinear_regression(Y,XX,nimp):
 	left_ix=chosable[:,0]
 	hist=ravel(zeros((1,nimp),int))
 	res=ravel(zeros((1,nimp)))
+	Rsq=nan*ravel(zeros((nx-1,1)))
 	linco=ravel(zeros((nx-1,1)))
 	# Last touch
 	# We remove the mean of Y
@@ -73,6 +78,7 @@ def multilinear_regression(Y,XX,nimp):
 		vec[1:]=hist[0:(ni+1)]
 		M=X[:,vec]
 		coefs,dy=linalg.lstsq(M,Y,rcond=None)[:2]
+		YY=Y-sum(M*coefs,1)
 		res[ni]=sum(dy)
 		# updating the variables that can still be used
 		left_ix[ix]=False
@@ -82,6 +88,9 @@ def multilinear_regression(Y,XX,nimp):
 	hist=hist-1
 	linco[hist]=coefs[1:]
 	offset=coefs[0]
-	Rsq=1.0-res/err0
-
-	return linco,offset,Rsq
+	res=1.0-res/err0
+	# we compute how much each column of X contributes to decreasing the variance
+	if nimp>1:
+		res[1:]=res[1:]-res[0:(nimp-1)]
+	Rsq[hist]=res
+	return linco,offset,Rsq,hist
