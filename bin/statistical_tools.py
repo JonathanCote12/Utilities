@@ -18,15 +18,19 @@ def multilinear_regression(Y,XX,*args):
 		Y=ravel(Y)
 	# Making sure X is a column vector of rows
 	if len(sx)==1:
-		if sx!=ny:
-			ValueError('X should be a matrix with as many rows as Y has elements')
+		if sx[0]!=ny:
+			raise ValueError('X should be a matrix with as many rows as Y has elements')
+		else:
+			nimp=1
+			sx=array([ny,1])
+			XX=XX.reshape(sx)
 	elif len(sx)==2:
 		if sx[0]!=ny:
 			XX=XX.T
 			sx=XX.shape
 			print('Warning : transposing X to match shape of Y')
 		elif sx[0]!=ny:
-			ValueError('X should be a matrix with as many rows as Y has elements')
+			raise ValueError('X should be a matrix with as many rows as Y has elements')
 	# We add a '1' column to X
 	X=ones((ny,sx[1]+1))
 	X[:,1:]=XX
@@ -44,6 +48,7 @@ def multilinear_regression(Y,XX,*args):
 	nvx=sum(chosable)
 	bli=array(range(nx))
 	if nimp>nvx:
+		nimp=nvx
 		print('Warning : changing predictor number to number of variables')
 
 	left=bli[chosable[:,0]]
@@ -55,11 +60,10 @@ def multilinear_regression(Y,XX,*args):
 	# Last touch
 	# We remove the mean of Y
 	M=array([X[:,0]]).T
-	cte=linalg.lstsq(M,Y,rcond=None)[0]
+	cte,dy=linalg.lstsq(M,Y,rcond=None)[:2]
 	YY=Y-ravel(M)*cte
 	# baseline error
-	err0=var(Y)
-
+	err0=sum(dy)
 	# We find best to worst predictor in X
 	for ni in range(nimp):
 		nvx=sum(left_ix)
