@@ -28,6 +28,13 @@ def pwd():
 	lines=unpy('pwd')
 	return clean_line(lines[0])
 
+# folder
+def last_pwd():
+	fold=pwd()
+	fold=fold.rstrip('/')
+	words=fold.split('/')
+	return words[-1]
+
 #create job list from index a to index b
 #fname/index/ename is absolute adress of the executable
 def bjarray(jname,fname,ename,a,b):
@@ -185,7 +192,6 @@ def make_file_list(part_fname,outro):
 			bli=f.find(outro)
 			if bli>=0:
 				numero=f[ix+l:bli]
-				#liste.append([f,int(f[ix+l:bli])])
 			else:
 				numero=f[ix+l]
 			try:
