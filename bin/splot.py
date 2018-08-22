@@ -8,7 +8,7 @@
 from pyx import *
 from numpy import *
 from pyx.graph import axis
-from tools import *
+from import_tools import *
 
 
 """
