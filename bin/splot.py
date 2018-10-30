@@ -41,6 +41,8 @@ from import_tools import *
         ymax        : max y value
         key        : position of figure legend
         out        : name of output file
+        -ylog      : y axis is logarithmic
+        -xlog      : x axis is logarithmic
 
     Local options :
         x        : index of column or row to be used as x axis values (e.g. x=0 for the first column)
@@ -86,8 +88,9 @@ from import_tools import *
                         labels and titles use the Latex interpreter
             splot.py file.txt if='A[:,0]>1'
                         plots the second column as a function of the first if elements of the first are greater than 1
-            splot.py file.txt mode='h' if='A[0,:]>1'
+            splot.py file.txt mode='h' if='A[0,:]>1' -xlog
                         plots the second row as a function of the first row if elements of the first row are greater than 1
+                        the x axis is logarithmic
             splot.py file.txt mode='h' if='A[0,:]>1' andif='A[0,:]<=1'
                         plots the second row as a function of the first row if elements of the first row are greater than 1
                         and (with a different style) if the elements of the first row are smaller than 1
@@ -163,6 +166,8 @@ class Glob:
         self.width=8
         self.height=5
         self.kdist=0.1
+        self.xlog=0
+        self.ylog=0
         keyz=''
         files=[]
         nf=0
@@ -193,6 +198,10 @@ class Glob:
                 self.key=graph.key.key(pos="tl", dist=self.kdist)
             elif arg.startswith('--help'):
                 self.usage()
+            elif arg.startswith('-xlog'):
+                self.xlog=1
+            elif arg.startswith('-ylog'):
+                self.ylog=1
             elif arg.startswith('andif'):
                 if nf<1:
                     raise ValueError('Error : cannot use andif= before the first declared file')
@@ -229,7 +238,18 @@ class Glob:
             if keyz=='None':
                 self.key=None
 
-        self.graph=graph.graphxy(width=self.width,height=self.height,key=self.key,x=axis.linear(title=self.xlabel,min=self.xmin,max=self.xmax),y=axis.linear(title=self.ylabel,min=self.ymin,max=self.ymax))
+        if self.xlog:
+            xaxis=axis.log(title=self.xlabel,min=self.xmin,max=self.xmax);
+        else:
+            xaxis=axis.linear(title=self.xlabel,min=self.xmin,max=self.xmax)
+        if self.ylog:
+            yaxis=axis.log(title=self.ylabel,min=self.ymin,max=self.ymax)
+        else:
+            yaxis=axis.linear(title=self.ylabel,min=self.ymin,max=self.ymax)
+
+        self.graph=graph.graphxy(width=self.width,height=self.height,key=self.key,
+                x=xaxis,
+                y=yaxis )
         self.graphs=[Graph(args[files[i][0]:files[i][1]]) for i in range(nf)]
 
     def make_plot(self):
