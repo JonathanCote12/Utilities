@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 # Copyright Serge Dmitrieff
@@ -9,6 +9,7 @@ from pyx import *
 from numpy import *
 from pyx.graph import axis
 from import_tools import *
+
 
 
 """
@@ -33,39 +34,41 @@ from import_tools import *
     Global options :
         xlabel        : label of x axis
         ylabel        : label of y axis
-        width        : width of figure
+        width         : width of figure
         height        : height of figure
-        xmin        : min x value
-        xmax        : max x value
-        ymin        : min y value
-        ymax        : max y value
-        key        : position of figure legend
-        out        : name of output file
-        -ylog      : y axis is logarithmic
-        -xlog      : x axis is logarithmic
+        xmin          : min x value
+        xmax          : max x value
+        ymin          : min y value
+        ymax          : max y value
+        key           : position of figure legend
+        out           : name of output file
+        -ylog         : y axis is logarithmic
+        -xlog         : x axis is logarithmic
+        -keep         : keep options for subsequent plots, until -discard
+        -discard      : discard options for next plot
 
     Local options :
         x        : index of column or row to be used as x axis values (e.g. x=0 for the first column)
                         also can specify an operation : x=A[:,0]*A[:,1]
         y        : index of column or row to be used as y axis values (e.g. x=0 for the first column)
                         also can specify an operation : y=A[:,1]*A[:,2]/A[:,3]
-        dy        : index of column or row to be used as dy values (e.g. x=0 for the first column)
+        dy       : index of column or row to be used as dy values (e.g. x=0 for the first column)
                         also can specify an operation : dy=A[:,2]/sqrt(A[:,3])
-        mode        : h for horizontal (rows), v for vertical (column) (default)
+        mode     : h for horizontal (rows), v for vertical (column) (default)
 
-        color        : color of lines or symbol ; can be either red, green, blue, dark, medium, light, black
+        color    : color of lines or symbol ; can be either red, green, blue, dark, medium, light, black
                         or color.cmyk.*  or color.rgb.*
                         or an operation, e.g. color=A[:,2]
 
-        style        : style of plot : - or _ for a line, -- for dashed, .- for dashdotted
+        style    : style of plot : - or _ for a line, -- for dashed, .- for dashdotted
                                     o for circles  x , * for crosses  + for plus   > , <     for triangles
-        if        : condition to keep the rows or columns
+        if       : condition to keep the rows or columns
 
-        range        : range of rows / columns to plot
+        range    : range of rows / columns to plot
 
-        size        : size of symbol used
+        size     : size of symbol used
 
-        line        : thickness of line, from 0 to 5
+        line     : thickness of line, from 0 to 5
 
         title (or legend) : title of the graph
 
@@ -94,6 +97,10 @@ from import_tools import *
             splot.py file.txt mode='h' if='A[0,:]>1' andif='A[0,:]<=1'
                         plots the second row as a function of the first row if elements of the first row are greater than 1
                         and (with a different style) if the elements of the first row are smaller than 1
+            splot.py range=3 -keep data_0*.txt
+                        plots data from only the third line of the files data_0*.txt
+            splot.py data.txt x=1 y=2 and y=3
+                        plots the third and fourth column as a function of the second
 """
 
 # Basic set of colours
@@ -150,7 +157,33 @@ grad_dict={
     'jet'        :     color.gradient.Jet,
     }
 
+__SPLIT_MARK__ = '--split_mark--'
+
+class Toplot:
+    # Toplot is a class containing the options for plotting
+    #   it also contains a method to split into two
+    def __init__(self, fname, args):
+        self.file_name=fname
+        self.args=[arg for arg in args]
+    def check_split(self):
+        na=len(self.args)
+        do_split=0
+        for i,arg in enumerate(self.args):
+            if arg==__SPLIT_MARK__:
+                do_split=1
+                n_split=i
+        if do_split:
+            future_args=self.args
+            self.args=self.args[0:n_split]
+            future_args.pop(n_split)
+            return [1,Toplot(self.file_name,future_args)]
+        else:
+            return [0,1]
+
+
 class Glob:
+    # Glob is the global plotter class
+    # It mostly sorts arguments and prepares global plot options
     def __init__(self, args):
         narg=len(args)
         if nargs<2:
@@ -168,10 +201,16 @@ class Glob:
         self.kdist=0.1
         self.xlog=0
         self.ylog=0
+
         keyz=''
-        files=[]
-        nf=0
-        for i,arg in enumerate(args):
+        future_plots=[]
+        current_args=[]
+        keep=0
+        has_name=0
+
+        # we iterate through arguments and assign them to global or local options
+        for arg in args:
+            # Global options
             if arg.startswith('out='):
                 self.out=arg[4:]
             elif arg.startswith('xlabel='):
@@ -202,24 +241,46 @@ class Glob:
                 self.xlog=1
             elif arg.startswith('-ylog'):
                 self.ylog=1
+            # Local / semi-local options
             elif arg.startswith('andif'):
-                if nf<1:
+                if has_name==0:
                     raise ValueError('Error : cannot use andif= before the first declared file')
                 else:
-                    files.append([files[nf-1][0],0])
-                    files[nf-1][1]=i
-                    nf+=1
-            elif arg.find('=')<0:
-                files.append([i,0])
-                if nf>0:
-                    files[nf-1][1]=i
-                nf+=1
-        files[nf-1][1]=narg
+                    #future_plots.append(Toplot(fname,current_args))
+                    current_args.append(__SPLIT_MARK__)
+                    current_args.append(arg)
 
-        for i in range(1,nf):
-            if args[files[i][0]]=='and':
-                args[files[i][0]]=args[files[i-1][0]]
+            elif arg.startswith('-keep'):
+                keep=1
+            elif arg.startswith('-discard'):
+                keep=0
+            elif arg.startswith('-') or arg.find('=')>=0:
+                current_args.append(arg)
+            # If it's not an option, it's definitey a filename
+            elif arg=='and':
+                current_args.append(__SPLIT_MARK__)
+            else:
+                # If there is already a name for a future plot
+                if has_name:
+                    future_plots.append(Toplot(fname,current_args))
+                    if keep==0:
+                        current_args=[]
+                else:
+                    has_name=1
+                fname=arg
 
+        # We still need add the last file to futureèplots
+        if has_name:
+            future_plots.append(Toplot(fname,current_args))
+            has_name=0
+
+        # we check if the plots must be split by and / andif
+        for toplot in future_plots:
+            [is_split,new_plot]=toplot.check_split()
+            if is_split:
+                future_plots.append(new_plot)
+
+        # we deal with global plot properties
         if self.xlabel:
             try:
                 self.xlabel=r"%s" %(self.xlabel)
@@ -250,7 +311,9 @@ class Glob:
         self.graph=graph.graphxy(width=self.width,height=self.height,key=self.key,
                 x=xaxis,
                 y=yaxis )
-        self.graphs=[Graph(args[files[i][0]:files[i][1]]) for i in range(nf)]
+
+        # We create the graphs
+        self.graphs=[Graph(toplot) for toplot in future_plots]
 
     def make_plot(self):
         for graf in self.graphs:
@@ -279,13 +342,15 @@ class Glob:
         quit
 
 class Graph(Glob):
+    # Graph is a class containing a single line/set of points and their style, created from class Toplot
     numr=-1
-    def __init__(self, args):
+    def __init__(self, toplot):
+        args=toplot.args
+        self.file=toplot.file_name
         Graph.numr+=1
         self.x=0
         self.y=1
         self.mode='v'
-        self.file=args[0]
         self.legend="file %s" %Graph.numr
         self.data=[]
         self.dX=[]
@@ -309,6 +374,7 @@ class Graph(Glob):
         if a==1:
             self.mode='h'
 
+        # using local options
         for arg in args:
             if arg.startswith('legend=') or arg.startswith('title='):
                 if arg.startswith('legend='):
@@ -341,26 +407,39 @@ class Graph(Glob):
                 siz=arg[5:]
 
 
-        if (len(self.range) or len(self.cond)):
+
+        #if (len(self.range) or len(self.cond)):
+        if len(self.range):
             A=self.set_A_range(A)
 
-        if siz.isdigit() or siz.find('A[')>=0:
-            self.S=self.set_from_input(A,siz,'size')
-        if col.isdigit() or col.find('A[')>=0:
-            self.C=self.set_from_input(A,col,'color')
-
+        # We perform a first extraction of X and Y to be able to evalyate conditions on X,Y
         self.X=self.set_from_input(A,self.x,'x')
         self.Y=self.set_from_input(A,self.y,'y')
         self.dX=self.set_from_input(A,self.dx,'dx')
         self.dY=self.set_from_input(A,self.dy,'dy')
 
+        #if (len(self.range) or len(self.cond)):
+        if len(self.cond):
+            A=self.set_A_condition(A)
+
+        # Now we perfeorm the definitive extraction of X,Y once A has bne filtered
+        self.X=self.set_from_input(A,self.x,'x')
+        self.Y=self.set_from_input(A,self.y,'y')
+        self.dX=self.set_from_input(A,self.dx,'dx')
+        self.dY=self.set_from_input(A,self.dy,'dy')
+
+        # Now we assign colors and size if need be
+        if siz.isdigit() or siz.find('A[')>=0:
+            self.S=self.set_from_input(A,siz,'size')
+        if col.isdigit() or col.find('A[')>=0:
+            self.C=self.set_from_input(A,col,'color')
 
         if not len(self.C):
             self.C=self.X
         if not len(self.S):
             self.S=self.X
 
-
+        # We check size
         lX=len(self.X)
         lY=len(self.Y)
         if lX>lY:
@@ -374,11 +453,14 @@ class Graph(Glob):
         if not len(self.dX):
             self.dX=zeros((lX,1))
 
+        # we scale the color scale
         self.C=(self.C-min(self.C))/(max(self.C)-min(self.C))
 
+        # we make sure no size is non-positive
         if min(self.S)<=0:
             self.S=(self.S-min(self.S))+0.001
 
+        # and now we can make the style !
         self.style=Style(args).style
 
     def set_from_input(self,A,input,coord):
@@ -417,7 +499,9 @@ class Graph(Glob):
             lr=len(srange)
             try :
                 iii=array([int(s) for s in srange])
-                if lr==2:
+                if lr==1:
+                    B=array([B[iii[0]]])
+                elif lr==2:
                     B=B[iii[0]:iii[1]]
                 elif lr==3:
                     B=B[iii[0]:iii[2]:iii[1]]
@@ -426,12 +510,23 @@ class Graph(Glob):
                     raise ValueError('Range must be of the format begin:end or begin:step:end')
             except:
                 raise ValueError('Cannot convert Range to adequate format (note : range must be of the format begin:end or begin:step:end)')
-        # Now we transpose for the 'if' operation or export
         if self.mode=='h':
             A=B.transpose()
         else:
             A=B.copy()
+
+        return A
+
+
+    def set_A_condition(self,A):
+        if self.mode=='h':
+            B=A.transpose()
+        else:
+            B=A.copy()
+
         if len(self.cond)>0:
+            X=self.X
+            Y=self.Y
             try:
                 kept=eval(self.cond)
                 if self.mode=='h':
@@ -441,9 +536,11 @@ class Graph(Glob):
                     A=A[kept]
             except:
                 raise ValueError('Cannot understand condition. Hint use : if=\'A[:,2]>0.5\' ')
+
         return A
 
 class Style(Graph):
+    # A class containing the style to make a graph
     def __init__(self, args):
         count=Graph.numr
         self.style=[]
@@ -457,7 +554,6 @@ class Style(Graph):
                 else:
                     self.dxy=[self.goodstyle.linew,colours[0]]
 
-
         if self.goodstyle.kind=='symbol':
             if not len(self.dxy):
                 self.style=[changesymbol(**vars(self.goodstyle)),graph.style.errorbar(False)]
@@ -470,8 +566,8 @@ class Style(Graph):
             else:
                 self.style=[graph.style.line([self.goodstyle.linest,self.goodstyle.linew,self.goodstyle.setcolor]),graph.style.errorbar(errorbarattrs=self.dxy)]
 
-
 class goodstyle(Style):
+    # A class containing the style attributes to pass to python PyX
     def __init__(self,args,count):
         self.kind='symbol'
         self.setcolor=colours[int(ceil(count/4)) %4]
